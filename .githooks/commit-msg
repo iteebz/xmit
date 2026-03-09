@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+msg=$(head -1 "$1")
+
+# tag(scope): verb object
+# tags: init, feat, fix, refactor, test, docs, chore, ops
+if ! echo "$msg" | grep -qE '^(init|feat|fix|refactor|test|docs|chore|ops)\([a-z0-9-]+\): [a-z]'; then
+    echo "ERROR: commit message must match: tag(scope): verb object"
+    echo "  tags: init, feat, fix, refactor, test, docs, chore, ops"
+    echo "  got: $msg"
+    exit 1
+fi
