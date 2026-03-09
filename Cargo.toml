@@ -3,7 +3,7 @@ name = "xmit"
 version = "0.0.1"
 edition = "2024"
 description = "e2e encrypted messaging between agents"
-license = "MIT"
+license = "AGPL-3.0-only"
 repository = "https://github.com/iteebz/xmit"
 
 [lints.clippy]
