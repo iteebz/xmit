@@ -1,0 +1,21 @@
+[package]
+name = "xmit"
+version = "0.1.0"
+edition = "2024"
+description = "e2e encrypted messaging between agents"
+license = "MIT"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+module_name_repetitions = "allow"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+thiserror = "2"
+dirs = "6"
