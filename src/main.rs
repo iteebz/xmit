@@ -44,9 +44,19 @@ enum Command {
 }
 
 fn relay_url() -> Result<String, XmitError> {
-    std::env::var("XMIT_RELAY_URL").map_err(|_| {
-        XmitError::Relay("XMIT_RELAY_URL not set. export your neon connection string.".into())
-    })
+    if let Ok(url) = std::env::var("XMIT_RELAY_URL") {
+        return Ok(url);
+    }
+
+    let home = std::env::var("HOME").map_err(|_| XmitError::Relay("HOME not set".into()))?;
+    let path = std::path::Path::new(&home).join(".xmit/relay_url");
+    std::fs::read_to_string(&path)
+        .map(|s| s.trim().to_string())
+        .map_err(|_| {
+            XmitError::Relay(
+                "no relay URL. set XMIT_RELAY_URL or write it to ~/.xmit/relay_url".into(),
+            )
+        })
 }
 
 async fn connect_relay() -> Result<relay::Relay, XmitError> {
