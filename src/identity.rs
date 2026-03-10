@@ -8,18 +8,24 @@ use crate::crypto;
 use crate::error::XmitError;
 
 #[derive(Serialize, Deserialize)]
+pub struct Peer {
+    pub encryption_key: String, // x25519 public
+    pub verifying_key: String,  // ed25519 public
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Identity {
     pub username: String,
-    pub secret_key: String,
-    pub public_key: String,
-    pub peers: HashMap<String, String>, // username -> public_key
+    pub secret_key: String,    // x25519 secret
+    pub public_key: String,    // x25519 public
+    pub signing_key: String,   // ed25519 secret
+    pub verifying_key: String, // ed25519 public
+    pub peers: HashMap<String, Peer>,
 }
 
 fn config_dir() -> Result<PathBuf, XmitError> {
-    let dir = dirs::config_dir()
-        .ok_or_else(|| XmitError::Identity("no config directory found".into()))?
-        .join("xmit");
-    Ok(dir)
+    let home = std::env::var("HOME").map_err(|_| XmitError::Identity("HOME not set".into()))?;
+    Ok(PathBuf::from(home).join(".xmit"))
 }
 
 fn identity_path() -> Result<PathBuf, XmitError> {
@@ -36,10 +42,14 @@ pub fn init(username: &str) -> Result<Identity, XmitError> {
     }
 
     let (secret, public) = crypto::generate_keypair();
+    let (signing, verifying) = crypto::generate_signing_keypair();
+
     let identity = Identity {
         username: username.to_string(),
         secret_key: crypto::encode_secret_key(&secret),
         public_key: crypto::encode_public_key(&public),
+        signing_key: crypto::encode_signing_key(&signing),
+        verifying_key: crypto::encode_verifying_key(&verifying),
         peers: HashMap::new(),
     };
 
@@ -58,9 +68,7 @@ pub fn load() -> Result<Identity, XmitError> {
         ));
     }
     let data = fs::read_to_string(&path)?;
-    let identity: Identity =
-        serde_json::from_str(&data).map_err(|e| XmitError::Identity(e.to_string()))?;
-    Ok(identity)
+    serde_json::from_str(&data).map_err(|e| XmitError::Identity(e.to_string()))
 }
 
 pub fn save(identity: &Identity) -> Result<(), XmitError> {
@@ -69,21 +77,36 @@ pub fn save(identity: &Identity) -> Result<(), XmitError> {
     Ok(())
 }
 
-pub fn add_peer(username: &str, public_key: &str) -> Result<(), XmitError> {
+pub fn add_peer(
+    username: &str,
+    encryption_key: &str,
+    verifying_key: &str,
+) -> Result<(), XmitError> {
     let mut identity = load()?;
-    // validate the key decodes
-    crypto::decode_public_key(public_key)?;
-    identity
-        .peers
-        .insert(username.to_string(), public_key.to_string());
+    crypto::decode_public_key(encryption_key)?;
+    crypto::decode_verifying_key(verifying_key)?;
+    identity.peers.insert(
+        username.to_string(),
+        Peer {
+            encryption_key: encryption_key.to_string(),
+            verifying_key: verifying_key.to_string(),
+        },
+    );
     save(&identity)
 }
 
-pub fn get_peer_key(username: &str) -> Result<String, XmitError> {
+pub fn get_peer(username: &str) -> Result<Peer, XmitError> {
     let identity = load()?;
-    identity.peers.get(username).cloned().ok_or_else(|| {
-        XmitError::Identity(format!(
-            "no trusted peer '{username}'. run `xmit trust {username}` first."
-        ))
-    })
+    identity
+        .peers
+        .get(username)
+        .map(|p| Peer {
+            encryption_key: p.encryption_key.clone(),
+            verifying_key: p.verifying_key.clone(),
+        })
+        .ok_or_else(|| {
+            XmitError::Identity(format!(
+                "no trusted peer '{username}'. run `xmit trust {username}` first."
+            ))
+        })
 }

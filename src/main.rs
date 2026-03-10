@@ -23,19 +23,19 @@ enum Command {
         /// Username to claim (e.g. tyson)
         username: String,
     },
-    /// Trust a peer by username (fetches their public key from relay)
+    /// Trust a peer by username (fetches their public keys from relay)
     Trust {
         /// Peer username to trust
         username: String,
     },
-    /// Send an encrypted payload to a peer
+    /// Send an encrypted, signed payload to a peer
     Send {
         /// Recipient username
         to: String,
         /// File to send (reads stdin if omitted)
         file: Option<String>,
     },
-    /// Receive and decrypt pending messages
+    /// Receive, verify, and decrypt pending messages
     Recv,
     /// List pending messages without consuming them
     Ls,
@@ -50,8 +50,7 @@ fn relay_url() -> Result<String, XmitError> {
 }
 
 async fn connect_relay() -> Result<relay::Relay, XmitError> {
-    let url = relay_url()?;
-    relay::Relay::connect(&url).await
+    relay::Relay::connect(&relay_url()?).await
 }
 
 #[tokio::main]
@@ -69,20 +68,23 @@ async fn run(command: Command) -> Result<(), XmitError> {
         Command::Init { username } => {
             let id = identity::init(&username)?;
             let relay = connect_relay().await?;
-            relay.register(&username, &id.public_key).await?;
+            relay
+                .register(&username, &id.public_key, &id.verifying_key)
+                .await?;
             println!("identity created: {username}");
-            println!("public key: {}", id.public_key);
+            println!("encryption key: {}", id.public_key);
+            println!("verifying key: {}", id.verifying_key);
         }
         Command::Trust { username } => {
             let relay = connect_relay().await?;
-            let public_key = relay.lookup_key(&username).await?;
-            identity::add_peer(&username, &public_key)?;
+            let (encryption_key, verifying_key) = relay.lookup_keys(&username).await?;
+            identity::add_peer(&username, &encryption_key, &verifying_key)?;
             println!("trusted: {username}");
         }
         Command::Send { to, file } => {
             let id = identity::load()?;
-            let peer_key_str = identity::get_peer_key(&to)?;
-            let peer_key = crypto::decode_public_key(&peer_key_str)?;
+            let peer = identity::get_peer(&to)?;
+            let peer_key = crypto::decode_public_key(&peer.encryption_key)?;
             let our_secret = crypto::decode_secret_key(&id.secret_key)?;
             let shared = crypto::shared_secret(&our_secret, &peer_key);
 
@@ -95,8 +97,14 @@ async fn run(command: Command) -> Result<(), XmitError> {
             };
 
             let encrypted = crypto::encrypt(&shared, &plaintext)?;
+
+            let signing_key = crypto::decode_signing_key(&id.signing_key)?;
+            let signature = crypto::sign(&signing_key, encrypted.as_bytes());
+
             let relay = connect_relay().await?;
-            relay.send(&id.username, &to, &encrypted).await?;
+            relay
+                .send(&id.username, &to, &encrypted, &signature)
+                .await?;
             println!("sent {} bytes to {to}", plaintext.len());
         }
         Command::Recv => {
@@ -111,8 +119,17 @@ async fn run(command: Command) -> Result<(), XmitError> {
             }
 
             for msg in &messages {
-                let peer_key_str = identity::get_peer_key(&msg.from)?;
-                let peer_key = crypto::decode_public_key(&peer_key_str)?;
+                let peer = identity::get_peer(&msg.from)?;
+                let verifying_key = crypto::decode_verifying_key(&peer.verifying_key)?;
+
+                if let Err(e) =
+                    crypto::verify(&verifying_key, msg.payload.as_bytes(), &msg.signature)
+                {
+                    eprintln!("REJECTED msg {} from {}: {e}", msg.id, msg.from);
+                    continue;
+                }
+
+                let peer_key = crypto::decode_public_key(&peer.encryption_key)?;
                 let shared = crypto::shared_secret(&our_secret, &peer_key);
 
                 match crypto::decrypt(&shared, &msg.payload) {
@@ -124,10 +141,7 @@ async fn run(command: Command) -> Result<(), XmitError> {
                         }
                     }
                     Err(e) => {
-                        eprintln!(
-                            "failed to decrypt message {} from {}: {e}",
-                            msg.id, msg.from
-                        );
+                        eprintln!("decrypt failed msg {} from {}: {e}", msg.id, msg.from);
                     }
                 }
             }
