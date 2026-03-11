@@ -52,11 +52,7 @@ fn relay_url() -> Result<String, XmitError> {
     let path = std::path::Path::new(&home).join(".xmit/relay_url");
     std::fs::read_to_string(&path)
         .map(|s| s.trim().to_string())
-        .map_err(|_| {
-            XmitError::Relay(
-                "no relay URL. set XMIT_RELAY_URL or write it to ~/.xmit/relay_url".into(),
-            )
-        })
+        .map_err(|_| XmitError::Relay("no relay URL. set XMIT_RELAY_URL or write it to ~/.xmit/relay_url".into()))
 }
 
 async fn connect_relay() -> Result<relay::Relay, XmitError> {
@@ -78,9 +74,7 @@ async fn run(command: Command) -> Result<(), XmitError> {
         Command::Init { username } => {
             let id = identity::init(&username)?;
             let relay = connect_relay().await?;
-            relay
-                .register(&username, &id.public_key, &id.verifying_key)
-                .await?;
+            relay.register(&username, &id.public_key, &id.verifying_key).await?;
             println!("identity created: {username}");
             println!("encryption key: {}", id.public_key);
             println!("verifying key: {}", id.verifying_key);
@@ -112,9 +106,7 @@ async fn run(command: Command) -> Result<(), XmitError> {
             let signature = crypto::sign(&signing_key, encrypted.as_bytes());
 
             let relay = connect_relay().await?;
-            relay
-                .send(&id.username, &to, &encrypted, &signature)
-                .await?;
+            relay.send(&id.username, &to, &encrypted, &signature).await?;
             println!("sent {} bytes to {to}", plaintext.len());
         }
         Command::Recv => {
@@ -132,9 +124,7 @@ async fn run(command: Command) -> Result<(), XmitError> {
                 let peer = identity::get_peer(&msg.from)?;
                 let verifying_key = crypto::decode_verifying_key(&peer.verifying_key)?;
 
-                if let Err(e) =
-                    crypto::verify(&verifying_key, msg.payload.as_bytes(), &msg.signature)
-                {
+                if let Err(e) = crypto::verify(&verifying_key, msg.payload.as_bytes(), &msg.signature) {
                     eprintln!("REJECTED msg {} from {}: {e}", msg.id, msg.from);
                     continue;
                 }
@@ -167,12 +157,7 @@ async fn run(command: Command) -> Result<(), XmitError> {
             }
 
             for msg in &messages {
-                println!(
-                    "{} | from: {} | {} bytes",
-                    msg.created_at,
-                    msg.from,
-                    msg.payload.len()
-                );
+                println!("{} | from: {} | {} bytes", msg.created_at, msg.from, msg.payload.len());
             }
         }
         Command::Migrate => {

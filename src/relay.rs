@@ -33,8 +33,7 @@ impl Relay {
 
         let client = if use_tls {
             use rustls_platform_verifier::ConfigVerifierExt as _;
-            let config = rustls::ClientConfig::with_platform_verifier()
-                .map_err(|e| XmitError::Relay(e.to_string()))?;
+            let config = rustls::ClientConfig::with_platform_verifier().map_err(|e| XmitError::Relay(e.to_string()))?;
             let tls = tokio_postgres_rustls::MakeRustlsConnect::new(config);
             let (client, connection) = tokio_postgres::connect(database_url, tls)
                 .await
@@ -67,12 +66,7 @@ impl Relay {
             .map_err(|e| XmitError::Relay(e.to_string()))
     }
 
-    pub async fn register(
-        &self,
-        username: &str,
-        encryption_key: &str,
-        verifying_key: &str,
-    ) -> Result<(), XmitError> {
+    pub async fn register(&self, username: &str, encryption_key: &str, verifying_key: &str) -> Result<(), XmitError> {
         self.client
             .execute(
                 "INSERT INTO users (username, encryption_key, verifying_key) VALUES ($1, $2, $3)
@@ -97,13 +91,7 @@ impl Relay {
         Ok((row.get(0), row.get(1)))
     }
 
-    pub async fn send(
-        &self,
-        from: &str,
-        to: &str,
-        payload: &str,
-        signature: &str,
-    ) -> Result<(), XmitError> {
+    pub async fn send(&self, from: &str, to: &str, payload: &str, signature: &str) -> Result<(), XmitError> {
         self.client
             .execute(
                 "INSERT INTO messages (from_username, to_username, payload, signature) VALUES ($1, $2, $3, $4)",

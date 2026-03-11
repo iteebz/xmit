@@ -77,11 +77,7 @@ pub fn save(identity: &Identity) -> Result<(), XmitError> {
     Ok(())
 }
 
-pub fn add_peer(
-    username: &str,
-    encryption_key: &str,
-    verifying_key: &str,
-) -> Result<(), XmitError> {
+pub fn add_peer(username: &str, encryption_key: &str, verifying_key: &str) -> Result<(), XmitError> {
     let mut identity = load()?;
     crypto::decode_public_key(encryption_key)?;
     crypto::decode_verifying_key(verifying_key)?;

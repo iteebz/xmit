@@ -54,9 +54,7 @@ pub fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<String, XmitError> {
 }
 
 pub fn decrypt(key: &[u8; 32], encoded: &str) -> Result<Vec<u8>, XmitError> {
-    let combined = B64
-        .decode(encoded)
-        .map_err(|e| XmitError::Crypto(e.to_string()))?;
+    let combined = B64.decode(encoded).map_err(|e| XmitError::Crypto(e.to_string()))?;
     if combined.len() < 12 {
         return Err(XmitError::Crypto("ciphertext too short".into()));
     }
@@ -75,11 +73,7 @@ pub fn sign(signing_key: &SigningKey, message: &[u8]) -> String {
     B64.encode(signature.to_bytes())
 }
 
-pub fn verify(
-    verifying_key: &VerifyingKey,
-    message: &[u8],
-    signature_b64: &str,
-) -> Result<(), XmitError> {
+pub fn verify(verifying_key: &VerifyingKey, message: &[u8], signature_b64: &str) -> Result<(), XmitError> {
     let sig_bytes = B64
         .decode(signature_b64)
         .map_err(|e| XmitError::Crypto(e.to_string()))?;
@@ -96,9 +90,7 @@ pub fn encode_public_key(key: &PublicKey) -> String {
 }
 
 pub fn decode_public_key(encoded: &str) -> Result<PublicKey, XmitError> {
-    let bytes = B64
-        .decode(encoded)
-        .map_err(|e| XmitError::Crypto(e.to_string()))?;
+    let bytes = B64.decode(encoded).map_err(|e| XmitError::Crypto(e.to_string()))?;
     let arr: [u8; 32] = bytes
         .try_into()
         .map_err(|_| XmitError::Crypto("invalid public key length".into()))?;
@@ -110,9 +102,7 @@ pub fn encode_secret_key(key: &StaticSecret) -> String {
 }
 
 pub fn decode_secret_key(encoded: &str) -> Result<StaticSecret, XmitError> {
-    let bytes = B64
-        .decode(encoded)
-        .map_err(|e| XmitError::Crypto(e.to_string()))?;
+    let bytes = B64.decode(encoded).map_err(|e| XmitError::Crypto(e.to_string()))?;
     let arr: [u8; 32] = bytes
         .try_into()
         .map_err(|_| XmitError::Crypto("invalid secret key length".into()))?;
@@ -124,9 +114,7 @@ pub fn encode_signing_key(key: &SigningKey) -> String {
 }
 
 pub fn decode_signing_key(encoded: &str) -> Result<SigningKey, XmitError> {
-    let bytes = B64
-        .decode(encoded)
-        .map_err(|e| XmitError::Crypto(e.to_string()))?;
+    let bytes = B64.decode(encoded).map_err(|e| XmitError::Crypto(e.to_string()))?;
     let arr: [u8; 32] = bytes
         .try_into()
         .map_err(|_| XmitError::Crypto("invalid signing key length".into()))?;
@@ -138,9 +126,7 @@ pub fn encode_verifying_key(key: &VerifyingKey) -> String {
 }
 
 pub fn decode_verifying_key(encoded: &str) -> Result<VerifyingKey, XmitError> {
-    let bytes = B64
-        .decode(encoded)
-        .map_err(|e| XmitError::Crypto(e.to_string()))?;
+    let bytes = B64.decode(encoded).map_err(|e| XmitError::Crypto(e.to_string()))?;
     let arr: [u8; 32] = bytes
         .try_into()
         .map_err(|_| XmitError::Crypto("invalid verifying key length".into()))?;
