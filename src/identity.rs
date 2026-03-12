@@ -57,7 +57,48 @@ pub fn init(username: &str) -> Result<Identity, XmitError> {
     fs::create_dir_all(&dir)?;
     fs::write(&path, serde_json::to_string_pretty(&identity).unwrap())?;
 
+    ensure_on_path();
+
     Ok(identity)
+}
+
+/// If the binary's directory isn't on PATH, append it to the user's shell rc.
+fn ensure_on_path() {
+    let bin_dir = match std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf())) {
+        Some(d) => d,
+        None => return,
+    };
+
+    let path_var = std::env::var("PATH").unwrap_or_default();
+    if path_var.split(':').any(|p| std::path::Path::new(p) == bin_dir) {
+        return;
+    }
+
+    let home = match std::env::var("HOME") {
+        Ok(h) => h,
+        Err(_) => return,
+    };
+
+    let export_line = format!("\nexport PATH=\"{}:$PATH\"\n", bin_dir.display());
+
+    // Try zshrc first (macOS default), fall back to bashrc
+    let rc = std::path::Path::new(&home).join(".zshrc");
+    let rc = if rc.exists() { rc } else { std::path::Path::new(&home).join(".bashrc") };
+
+    // Don't duplicate if already present
+    if let Ok(contents) = fs::read_to_string(&rc) {
+        if contents.contains(&format!("{}", bin_dir.display())) {
+            return;
+        }
+    }
+
+    if fs::OpenOptions::new().append(true).create(true).open(&rc)
+        .and_then(|mut f| std::io::Write::write_all(&mut f, export_line.as_bytes()))
+        .is_ok()
+    {
+        eprintln!("added {} to PATH in {}", bin_dir.display(), rc.display());
+        eprintln!("restart your shell or run: source {}", rc.display());
+    }
 }
 
 pub fn load() -> Result<Identity, XmitError> {
