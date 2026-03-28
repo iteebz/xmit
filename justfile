@@ -25,4 +25,8 @@ install: build
     cp target/release/xmit ~/.local/bin/xmit
     echo "installed xmit to ~/.local/bin/"
 
-ci: fmt-check clippy test
+format: fmt
+
+lint: fmt-check
+
+ci: lint clippy test
